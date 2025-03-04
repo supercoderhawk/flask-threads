@@ -8,15 +8,15 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='Flask-Threads',
-    version='0.1.0',
-    url='https://github.com/sintezcs/flask-threads.git',
+    name='Flask-Threads-Ext',
+    version='0.1.1',
+    url='https://github.com/supercoderhawk/flask-threads',
     author='Alexey Minakov',
-    author_email='a@spb.host',
+    author_email='supercoderhawk@gmail.com',
     description='A helper library to work with threads'
                 ' within Flask applications.',
     long_description=long_description,
     long_description_content_type='text/markdown',
     packages=find_packages(exclude=['tests']),
-    install_requires=['Flask >= 0.9'],
+    install_requires=['Flask >= 0.9,<2.2.0'],
 )

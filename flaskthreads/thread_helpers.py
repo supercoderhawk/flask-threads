@@ -2,7 +2,7 @@
 
 """Implements ThreadPoolExecutor with flask AppContext."""
 
-__author__ = 'Alexey Minakov (a@spb.host)'
+__author__ = 'Yubin Xia'
 
 import atexit
 from concurrent.futures import _base
@@ -11,14 +11,15 @@ import queue
 import threading
 import weakref
 import os
-
-from flask import _app_ctx_stack
-from flask import has_app_context
+from flask.ctx import AppContext, RequestContext
+from flask import _app_ctx_stack, _request_ctx_stack
+from flask import has_app_context, has_request_context
 
 APP_CONTEXT_ERROR = 'Running outside of Flask AppContext.'
+REQ_CONTEXT_ERROR = 'Running outside of Flask Request.'
 
 # This code is 1-1 copy of ThreadPoolExecutor from Python standard library
-# The only difference is the usage of Flask's app context.
+# The only difference is the usage of Flask's app context and request context
 
 # Workers are created as daemon threads. This is done to allow the interpreter
 # to exit when there are still idle threads in a ThreadPoolExecutor's thread
@@ -52,7 +53,7 @@ atexit.register(_python_exit)
 
 
 class _WorkItemWithContext(object):
-    def __init__(self, app_ctx, future, fn, args, kwargs):
+    def __init__(self, app_ctx: AppContext, future, fn, args, kwargs):
         self.app_ctx = app_ctx
         self.future = future
         self.fn = fn
@@ -75,6 +76,32 @@ class _WorkItemWithContext(object):
             self.future.set_result(result)
         finally:
             app_ctx.pop()
+
+
+class _WorkItemWithAppRequestContext(_WorkItemWithContext):
+    def __init__(self, app_ctx: AppContext, req_ctx: RequestContext, future, fn, args, kwargs):
+        super().__init__(app_ctx, future, fn, args, kwargs)
+        self.req_ctx = req_ctx
+
+    def run(self):
+        if not self.future.set_running_or_notify_cancel():
+            return
+
+        try:
+            app_ctx = self.app_ctx  # Capture ctx since we may set self to None
+            app_ctx.push()
+            req_ctx = self.req_ctx
+            req_ctx.push()
+            result = self.fn(*self.args, **self.kwargs)
+        except BaseException as exc:
+            self.future.set_exception(exc)
+            # Break a reference cycle with the exception 'exc'
+            self = None
+        else:
+            self.future.set_result(result)
+        finally:
+            app_ctx.pop()
+            req_ctx.pop()
 
 
 def _worker(executor_reference, work_queue):
@@ -120,31 +147,29 @@ class ThreadPoolWithAppContextExecutor(_base.Executor):
         if max_workers <= 0:
             raise ValueError("max_workers must be greater than 0")
 
-        if not has_app_context():
-            raise RuntimeError(APP_CONTEXT_ERROR)
-
-        self._app_ctx = _app_ctx_stack.top
         self._max_workers = max_workers
         self._work_queue = queue.Queue()
         self._threads = set()
         self._shutdown = False
         self._shutdown_lock = threading.Lock()
-        self._thread_name_prefix = (
-            thread_name_prefix or
-            ("ThreadPoolExecutor-%d" % self._counter()))
+        self._thread_name_prefix = (thread_name_prefix or ("ThreadPoolExecutor-%d" % self._counter()))
 
     def submit(self, fn, *args, **kwargs):
+        if not has_app_context():
+            raise RuntimeError(APP_CONTEXT_ERROR)
+        _app_ctx = _app_ctx_stack.top
         with self._shutdown_lock:
             if self._shutdown:
                 raise RuntimeError(
                     'cannot schedule new futures after shutdown')
 
             f = _base.Future()
-            w = _WorkItemWithContext(self._app_ctx, f, fn, args, kwargs)
+            w = _WorkItemWithContext(_app_ctx, f, fn, args, kwargs)
 
             self._work_queue.put(w)
             self._adjust_thread_count()
             return f
+
     submit.__doc__ = _base.Executor.submit.__doc__
 
     def _adjust_thread_count(self):
@@ -152,6 +177,7 @@ class ThreadPoolWithAppContextExecutor(_base.Executor):
         # the worker threads.
         def weakref_cb(_, q=self._work_queue):
             q.put(None)
+
         # TODO(bquinlan): Should avoid creating new threads if there are more
         # idle threads than items in the work queue.
         num_threads = len(self._threads)
@@ -173,7 +199,32 @@ class ThreadPoolWithAppContextExecutor(_base.Executor):
         if wait:
             for t in self._threads:
                 t.join()
+
     shutdown.__doc__ = _base.Executor.shutdown.__doc__
+
+
+class ThreadPoolWithAppRequestContextExecutor(ThreadPoolWithAppContextExecutor):
+    def __init__(self, max_workers=None, thread_name_prefix=''):
+        super().__init__(max_workers, thread_name_prefix)
+
+    def submit(self, fn, *args, **kwargs):
+        if not has_request_context():
+            raise RuntimeError(REQ_CONTEXT_ERROR)
+        _app_ctx = _app_ctx_stack.top
+        _req_ctx = _request_ctx_stack.top
+
+
+        with self._shutdown_lock:
+            if self._shutdown:
+                raise RuntimeError(
+                    'cannot schedule new futures after shutdown')
+
+            f = _base.Future()
+            w = _WorkItemWithAppRequestContext(_app_ctx, _req_ctx, f, fn, args, kwargs)
+
+            self._work_queue.put(w)
+            self._adjust_thread_count()
+            return f
 
 
 class AppContextThread(threading.Thread):
@@ -191,3 +242,26 @@ class AppContextThread(threading.Thread):
             super().run()
         finally:
             self.app_ctx.pop()
+
+
+class AppRequestContextThread(threading.Thread):
+    """Implements Thread with flask AppContext."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not has_app_context():
+            raise RuntimeError(APP_CONTEXT_ERROR)
+        if not has_request_context():
+            raise RuntimeError(REQ_CONTEXT_ERROR)
+
+        self.app_ctx = _app_ctx_stack.top
+        self.req_ctx = _request_ctx_stack.top
+
+    def run(self):
+        try:
+            self.app_ctx.push()
+            self.req_ctx.push()
+            super().run()
+        finally:
+            self.app_ctx.pop()
+            self.req_ctx.push()

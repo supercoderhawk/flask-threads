@@ -14,9 +14,11 @@ application context from another thread.
 
 **Warning! Alpha-version, use at your own risk.**
 
+**This is a extended version from https://github.com/sintezcs/flask-threads**
+
 ### Installation
 ```bash
-$ pip install Flask-Threads
+$ pip install Flask-Threads-Ext
 ```
 
 ### Examples
