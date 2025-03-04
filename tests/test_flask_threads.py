@@ -42,7 +42,7 @@ def test_app_request_context_thread(flask_app):
 
         def _func():
             from flask import request
-            # mock_action.action(g.test)
+            mock_action.action(g.test)
             print(type(request.headers))
             print(request.headers)
 
@@ -90,11 +90,14 @@ def test_app_context_executor(flask_app):
 def test_executor_running_without_flask_context():
     """Test running ThreadPoolWithAppContextExecutor without flask."""
     mock_action = Mock()
-    with pytest.raises(RuntimeError):
-        with ThreadPoolWithAppContextExecutor(max_workers=2) as pool:
-            future = pool.submit(lambda: mock_action.action())
-            future.result()
-        mock_action.action.assert_not_called()
+    with ThreadPoolWithAppContextExecutor(max_workers=2) as pool:
+        future = pool.submit(lambda: mock_action.action())
+        future.result()
+    # with pytest.raises(RuntimeError):
+    #     with ThreadPoolWithAppContextExecutor(max_workers=2) as pool:
+    #         future = pool.submit(lambda: mock_action.action())
+    #         future.result()
+    #     mock_action.action.assert_not_called()
 
 
 def test_executor_trasnfers_exceptions_to_calling_thread(flask_app):

@@ -1,3 +1,7 @@
+# V0.2.0
+
+* compatibility for non-flask context
+
 # V0.1.2
 
 * fix package error
