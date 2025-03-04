@@ -9,9 +9,9 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='Flask-Threads-Ext',
-    version='0.1.1',
+    version='0.1.2',
     url='https://github.com/supercoderhawk/flask-threads',
-    author='Alexey Minakov',
+    author='Yubin Xia',
     author_email='supercoderhawk@gmail.com',
     description='A helper library to work with threads'
                 ' within Flask applications.',
