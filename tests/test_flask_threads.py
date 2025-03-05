@@ -4,8 +4,8 @@ import pytest
 
 from flask import g
 from flask import jsonify
-from flaskthreads import AppContextThread, AppRequestContextThread
-from flaskthreads import ThreadPoolWithAppContextExecutor, ThreadPoolWithAppRequestContextExecutor
+from flask_threads_ext import AppContextThread, AppRequestContextThread
+from flask_threads_ext import ThreadPoolWithAppContextExecutor, ThreadPoolWithAppRequestContextExecutor
 
 TEST_URL = '/test'
 TEST_G = 'TEST'

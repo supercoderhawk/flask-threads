@@ -29,7 +29,7 @@ $ pip install Flask-Threads-Ext
 from flask import g
 from flask import request
 from flask import Flask
-from flaskthreads import AppContextThread
+from flask_threads_ext import AppContextThread
 
 app = Flask('my_app')
 
@@ -55,7 +55,7 @@ def do_some_user_work_in_another_thread():
 from flask import g
 from flask import request
 from flask import Flask
-from flaskthreads import ThreadPoolWithAppContextExecutor
+from flask_threads_ext import ThreadPoolWithAppContextExecutor
 
 app = Flask('my_app')
 

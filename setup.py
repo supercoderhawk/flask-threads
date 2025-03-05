@@ -9,7 +9,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='Flask-Threads-Ext',
-    version='0.2.0',
+    version='0.3.0',
     url='https://github.com/supercoderhawk/flask-threads',
     author='Yubin Xia',
     author_email='supercoderhawk@gmail.com',

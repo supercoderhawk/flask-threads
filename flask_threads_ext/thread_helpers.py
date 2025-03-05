@@ -9,7 +9,12 @@ from concurrent.futures import _base
 import itertools
 import queue
 import threading
-import types
+
+try:
+    from types import GenericAlias
+except ImportError:
+    # Python 3.8 或更早版本的替代实现
+    from typing import _GenericAlias as GenericAlias
 
 import weakref
 import os
@@ -74,7 +79,7 @@ class _WorkItem(object):
         else:
             self.future.set_result(result)
 
-    __class_getitem__ = classmethod(types.GenericAlias)
+    __class_getitem__ = classmethod(GenericAlias)
 
 
 class _WorkItemWithContext(object):
@@ -125,8 +130,8 @@ class _WorkItemWithAppRequestContext(_WorkItemWithContext):
         else:
             self.future.set_result(result)
         finally:
-            app_ctx.pop()
             req_ctx.pop()
+            app_ctx.pop()
 
 
 def _worker(executor_reference, work_queue):
